@@ -1,0 +1,47 @@
+name: Phase 1 - Deploy Infra and Land File
+
+on:
+  push:
+    branches:
+      - main
+
+# Required for OIDC token request
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::YOUR_AWS_ACCOUNT_ID:role/GitHubActionsDeployRole
+          aws-region: us-east-1
+
+      - name: Deploy CloudFormation Stack
+        run: |
+          aws cloudformation deploy \
+            --template-file infrastructure/template.yaml \
+            --stack-name data-pipeline-s3-stack \
+            --capabilities CAPABILITY_IAM \
+            --no-fail-on-empty-changes
+
+      - name: Generate and Upload Sample Data to S3
+        run: |
+          # Fetch the provisioned bucket name from CloudFormation outputs
+          RAW_BUCKET=$(aws cloudformation describe-stacks \
+            --stack-name data-pipeline-s3-stack \
+            --query "Stacks[0].Outputs[?OutputKey=='RawDataBucketName'].OutputValue" \
+            --output text)
+            
+          # Create a dummy CSV file locally on the runner
+          echo "id,name,value" > sample_data.csv
+          echo "1,test_record,100" >> sample_data.csv
+          
+          # Upload file to trigger the S3 event
+          aws s3 cp sample_data.csv s3://$RAW_BUCKET/incoming/sample_data.csv

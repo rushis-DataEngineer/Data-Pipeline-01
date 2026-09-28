@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Serverless Data Pipeline - Phase 1 Storage
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+
+Resources:
+  # 1. Bucket for storing Lambda/Glue code artifacts
+  ArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "data-pipeline-artifacts-${AWS::AccountId}-${EnvironmentName}"
+
+  # 2. Bucket where raw data files will land
+  RawDataBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "data-pipeline-raw-${AWS::AccountId}-${EnvironmentName}"
+      NotificationConfiguration:
+        EventBridgeConfiguration: 
+          EventBridgeEnabled: true # Crucial: Allows S3 to send file-drop events to EventBridge
+          
+Outputs:
+  RawDataBucketName:
+    Value: !Ref RawDataBucket
